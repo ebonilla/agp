@@ -11,6 +11,7 @@ N = m.N;
 iter = 1;
 fval = [];
 conf.cvSamples = 200;
+
 if ~isfield(conf,'learnhyp')
   conf.learnhyp = true;
 end
@@ -34,6 +35,11 @@ if ~isfield(conf,'likeopts')
     'MaxFunEvals',100,'DerivativeCheck','off');    
 end
 
+%% Learn likelihood by default
+if ~isfield(conf,'learnlik') 
+    conf.learnlik = 1;
+end
+       
     
 %% Main loop
 LKchol = cell(Q,1);
@@ -53,6 +59,7 @@ while true
   delta_l = mean(mean(abs(m.pars.L(:)-theta(numel(m.pars.M)+1:end))));
   fprintf('variational change m= %.4f\n', delta_m);
   fprintf('variational change s= %.4f\n', delta_l);
+  fprintf('ELBO = %.4f\n',- fval(end) );
   m.pars.M = reshape(theta(1:numel(m.pars.M)),size(m.pars.M));
   m.pars.L = reshape(theta(numel(m.pars.M)+1:end),size(m.pars.L));
   if (delta_m + delta_l)/2 < 1e-3 || (iter > 1 && fval(end-1) - fX(end) < 1e-5)
@@ -72,7 +79,8 @@ while true
   end
   
   %--- update likelihood parameters
-  if (numel(m.pars.hyp.lik) > 0)
+%  if (numel(m.pars.hyp.lik) > 0)
+   if (conf.learnlik) 
     fs = cell(m.K,1);
     for k=1:m.K
       Sk = exp(2*m.pars.L(:,k));

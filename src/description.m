@@ -10,7 +10,7 @@ function description()
 %     [ .    .     .]
 %     [f_1N  .  f_QN]
 % i.e. F = [f_1 ... f_Q]
-% 
+% `
 % The vectorial representation of all latent values
 %  f = F(:)
 % The matrix representation each column is a latent function
