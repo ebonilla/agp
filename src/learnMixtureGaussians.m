@@ -19,6 +19,23 @@ if ~isfield(conf,'latentnoise')
 else
   sn2 = conf.latentnoise;
 end
+
+%% check if optimisation options passed
+if ~isfield(conf,'varopts')
+    conf.varopts = struct('Display','final','Method','lbfgs','MaxIter',10,...
+    'MaxFunEvals',100,'DerivativeCheck','off');
+end
+if ~isfield(conf,'hyperopts')
+    conf.hyperopts = struct('Display','final','Method','lbfgs','MaxIter',5,...
+    'MaxFunEvals',100,'DerivativeCheck','off');    
+end
+if ~isfield(conf,'likeopts')
+       conf.likeopts = struct('Display','final','Method','lbfgs','MaxIter',5,...
+    'MaxFunEvals',100,'DerivativeCheck','off');    
+end
+
+    
+%% Main loop
 LKchol = cell(Q,1);
 while true
   % E-step : optimize variational parameters
