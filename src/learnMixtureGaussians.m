@@ -29,9 +29,7 @@ while true
     end
   end
   theta = [m.pars.M(:); m.pars.L(:)];
-  opts = struct('Display','final','Method','lbfgs','MaxIter',10,...
-    'MaxFunEvals',100,'DerivativeCheck','off'); 
-  [theta,fX,~] = minFunc(@elbo,theta,opts,m,conf,LKchol);
+  [theta,fX,~] = minFunc(@elbo,theta,conf.varopts,m,conf,LKchol);
   %[theta,fX,~] = minimize(theta,@elbo,10,m,conf,K,LKchol);
   fval = [fval; fX(end)];
   delta_m = mean(mean(abs(m.pars.M(:)-theta(1:numel(m.pars.M)))));
@@ -46,10 +44,8 @@ while true
   
   if conf.learnhyp
     %--- gradient-based optimization for covariance hyperparameters
-  % m.pars.hyp.cov = minimize(m.pars.hyp.cov, @elboCovhyp, 5, m, sn2);
-    opts = struct('Display','final','Method','lbfgs','MaxIter',5,...
-        'MaxFunEvals',100,'DerivativeCheck','off'); 
-    hyp0 = minFunc(@elboCovhyp,unwrap(m.pars.hyp.cov),opts,m,sn2);
+  % m.pars.hyp.cov = minimize(m.pars.hyp.cov, @elboCovhyp, 5, m, sn2);    
+    hyp0 = minFunc(@elboCovhyp,unwrap(m.pars.hyp.cov),conf.hyperopts,m,sn2);
     m.pars.hyp.cov = rewrap(m.pars.hyp.cov,hyp0);
     for j=1:Q
       K = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, m.x) + sn2*eye(N);
@@ -66,9 +62,7 @@ while true
       % generate S samples f ~ \Normal(f; m_k, S_k)
       fs{k} = mvnrnd(m.pars.M(:,k)', Sk', conf.nsamples)';
     end
-    opts = struct('Display','final','Method','lbfgs','MaxIter',5,...
-      'MaxFunEvals',100,'DerivativeCheck','off'); 
-    lik0 = minFunc(@elbolik,m.pars.hyp.lik(end),opts,m,fs);
+    lik0 = minFunc(@elbolik,m.pars.hyp.lik(end),conf.likeopts,m,fs);
 %    lik0 = minimize(m.pars.hyp.lik(end),@elbolik,5,m,fs);
     m.pars.hyp.lik(end) = lik0;
     fval = [fval; elbo(theta,m,conf,LKchol)];
@@ -84,7 +78,7 @@ end
 
 fval = -fval(fval ~= 0);
 figure; hold off;
-plot(1:numel(fval),fval,'-');
+plot(1:numel(fval),fval,'-'); set(gca, 'FontSize', 18);
 title('evidence lower bound');
 m.fval = fval;
 
