@@ -42,16 +42,19 @@ end
        
     
 %% Main loop
+
 LKchol = cell(Q,1);
 while true
   % E-step : optimize variational parameters
   if iter == 1
     for j=1:Q
       K = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, m.x) + sn2*eye(N);
-      LKchol{j} = jit_chol(K);
+      [LKchol{j}, jitter] = jit_chol(K);
     end
   end
   theta = [m.pars.M(:); m.pars.L(:)];
+  elbo0 = feval(@elbo,theta,m,conf,LKchol);
+  fprintf('elbo0=%.3f\n',elbo0);
   [theta,fX,~] = minFunc(@elbo,theta,conf.varopts,m,conf,LKchol);
   %[theta,fX,~] = minimize(theta,@elbo,10,m,conf,K,LKchol);
   fval = [fval; fX(end)];
@@ -73,7 +76,7 @@ while true
     m.pars.hyp.cov = rewrap(m.pars.hyp.cov,hyp0);
     for j=1:Q
       K = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, m.x) + sn2*eye(N);
-      LKchol{j} = jit_chol(K);
+      [LKchol{j}, jitter] = jit_chol(K);
     end
     fval = [fval; elbo(theta,m,conf,LKchol)];
   end
