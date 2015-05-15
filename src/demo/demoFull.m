@@ -5,7 +5,7 @@ rng(1110, 'twister');
 x = linspace(-5,5,100)';
 y = sample_gp(x,'covSEard',[0.01,1],1) + 0.1*randn(size(x));
 [N,D] = size(x);
-Q = 1; % no. latent functions
+Q = 2; % no. latent functions
 
 % Data
 m.x = x; m.y = y; m.N = N; m.Q = Q;
@@ -19,10 +19,12 @@ for j=1:Q
   m.pars.S{j} = diag(ones(N,1));                  % the cov matrix
 end
 
-% covariance hyperparameters
+%% covariance hyperparameters
 m.pars.hyp.covfunc = @covSEard;                   % cov function
 m.pars.hyp.cov = cell(Q,1);                       % cov hyperparameters
-m.pars.hyp.cov{1} = log([ones(D,1); 1]);
+for j = 1 : Q
+    m.pars.hyp.cov{j} = log([ones(D,1); 1]);
+end
 
 %% Optimization settings
 conf.nsamples                 = 2000;             % number of samples for gradient estimator
