@@ -5,11 +5,11 @@ clear; clc; close all;
 rng(1110, 'twister');
 
 %% Get data for chunking problem
-NTRAIN              = 50; % Number of sequences
+NTRAIN              = 5; % Number of sequences
 DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 FOLD_ID             = 1;
 
-[ll_train, predictiveMarginalsN, Y_test_vector, nLabels, data_train, data_test] = ...
+[ll_train, predMarginal, Y_test_vector, nLabels, data_train, data_test] = ...
     getData(NTRAIN, DATA_PATH, FOLD_ID);
 
 
@@ -51,6 +51,7 @@ m.pars.hyp.cov      = mat2cell(matHyper,ones(Q,1),nhyper);
 
 %% Optimization settings
 conf.nsamples                 = 2000;               % number of samples for gradient estimator
+conf.ntestsamples             = 10000; 
 conf.covfunc                  = m.pars.hyp.covfunc; % covariance function
 conf.maxiter                  = 100;                % how many optimization iterations to run?
 conf.variter                  = 10;                 % maxiter for optim the variational hyperparameter (per iteration)
@@ -64,15 +65,16 @@ conf.latentnoise              = 0;                  % minimum noise level of the
 %% Model setting
 m.likfunc                     = ll_train;         % likelihood function
 m.pars.hyp.likfunc            = ll_train;         % I AM HERE      
-m.pred                        = @predRegression;  % prediction 
+m.pred                        = @predStructured;  % prediction 
  m.pars.hyp.lik =             [];                 % likelihood parameters
 
-tic;
-m = learnFullGaussianStructured(m,conf);
-toc
+ 
+m    = learnFullGaussianStructured(m,conf);
 
+save('model.mat');
+marginals = feval(m.pred, m, conf, data_test);
 
-
+[avgError, nlp] =  computeErrorStructured(marginals, Y_test_vector);
 
 
 
