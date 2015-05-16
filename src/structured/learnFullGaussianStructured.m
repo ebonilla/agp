@@ -8,6 +8,7 @@ function m = learnFullGaussianStructured(m,conf)
 % of stochastic optimization.
 %
 % 30/09/14
+% N here is total number of feature vectors
 Q = m.Q;
 N = m.N;
 conf.cvsamples = 200; % for control variates
@@ -29,6 +30,7 @@ s_rows = (0:(Q-1))'*N + 1;
 e_rows = (1:Q)'*N;
 s_rows = [s_rows; e_rows(end)+1];         % Adding entries for binary nodes
 e_rows = [e_rows; e_rows(end) + nBinary];
+
 %% Main loop
 for j = 1 : Q
     K{j}    = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, m.X) + sn2*eye(N);
@@ -106,7 +108,7 @@ function [fval,grad] = elbo(theta,m,conf,K,LKchol,s_rows,e_rows,updateS)
   end
   rng(10101,'twister');
   Q = m.Q; 
-  vec_N = [m.N*ones(Q,1), size(K{Q+1},1)];
+  vec_N = [m.N*ones(Q,1); size(K{Q+1},1)];
   m.pars.M = theta(1:numel(m.pars.M));
   m.pars.L = theta(numel(m.pars.M)+1:end);
   dM = zeros(size(m.pars.M));
@@ -159,10 +161,14 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
   % conf.cvsamples : number of samples used for estimating the optimal control
   % variate factor
   N = m.N; Q = m.Q;
-  nsamples = size(fs,2);
-  % pre-computation of the inverse
-  sinv = zeros(N*Q,1);
-  for j=1:Q
+  nSamples = size(fs,2);
+  nBinary = Q^2;
+  nTotal   = m.max; % Total number of latent variables
+  nSeq     = size(m.Y,1); % Number of sequences
+  
+  %% pre-computation of the inverses
+  sinv = zeros(nTotal,1);
+  for j = 1 : Q + 1
     s_row = s_rows(j);
     e_row = e_rows(j);
     sinv(s_row:e_row) = 1./diag(m.pars.S{j});
@@ -171,23 +177,37 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
   % EVB: Replaced this with structured likelihood
   %logllh = fastLikelihood(m.likfunc,m.Y,fs,m.pars.hyp,N,Q);
   % 
-  vec_ll   = zeros(N,nsamples); % log likelihood for all data-points
-  for s = 1 : nsamples
+  vec_ll   = zeros(nSeq,nSamples); % log likelihood for all data-points
+  for s = 1 : nSamples
     vec_ll(:,s) = feval(m.likfunc, fs(:,s)); % the labels are included in the anonymous function
   end  
   fval = sum(mean(vec_ll,2)); % sum (over n) of average likelihoods over empirical distribution (samples)
   
+  %% gradients are required
   if nargout > 1
-    f0 = fs(:)-repmat(m.pars.M,nsamples,1);
-    dM = f0.*repmat(sinv,nsamples,1);
-    dL = 0.5*(dM.^2 - repmat(sinv,nsamples,1));
-
-    % some useful constructs
-    logllh = reshape(logllh,N,nsamples);
-    logllh = repmat(logllh,2*Q,1); % size (2*N*Q)xS
-    dML = [reshape(dM,N*Q,nsamples); reshape(dL,N*Q,nsamples)]; % size (2*N*Q)xS
-
-    pz = dML(:,1:conf.cvsamples)';
+    f0 = fs(:)-repmat(m.pars.M,nSamples,1);
+    dM = f0.*repmat(sinv,nSamples,1);
+    dL = 0.5*(dM.^2 - repmat(sinv,nSamples,1));
+    
+    logllh = zeros(nTotal, nSamples);
+    %% assign likelihood to respective nodes
+    for i = 1 : nSeq
+        idx = m.unary{i};
+        logllh(idx, :) = bsxfun(@plus, logllh(idx, :), vec_ll(i,:));
+    end
+    clear vec_ll;
+    idx          = m.binary(:);
+    logllh(idx)  =  fval;  % weight of grads for binary nodes is the sum of the ELL
+    %% some useful constructs
+    %logllh = reshape(logllh,N,nSamples);
+    %logllh = repmat(logllh,2*Q,1); % size (2*N*Q)xS
+    %dML = [reshape(dM,N*Q,nSamples); reshape(dL,N*Q,nSamples)]; % size (2*N*Q)xS
+    %
+    %
+    logllh = repmat(logllh, 2, 1); % size (2*nTotal)xS
+    dML = [reshape(dM, nTotal, nSamples); reshape(dL,nTotal,nSamples)];
+    
+    pz = dML(:,1 : conf.cvsamples)';
     py = logllh(:,1:conf.cvsamples)'.*pz;
     above = sum((py - repmat(mean(py),conf.cvsamples,1)).*pz)/(conf.cvsamples-1);
     below = sum(pz.^2)/(conf.cvsamples-1); % var(z) with E(z) = 0
@@ -195,7 +215,7 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
     cvopt(isnan(cvopt)) = 0;
 
     % the noisy gradient using the control variates
-    grads = logllh.*dML - repmat(cvopt',1,nsamples).*dML;
+    grads = logllh.*dML - repmat(cvopt',1,nSamples).*dML;
     grad = mean(grads,2);
     
     % NOTE: this is not the true variance reduction as this
@@ -214,10 +234,11 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
       disp([min(vargrad), max(vargrad), mean(vargrad)])
     end
 
-    dM = grad(1:Q*N);
-    dL = grad(Q*N+1:end);
+    dM = grad(1:nTotal);
+    dL = grad(nTotal+1:end);
   end
 end
+
 
 % wrapper for negative cross entropy function and its derivatives wrt
 % hyperparameters so that it can be used with minimize function
@@ -261,10 +282,10 @@ end
 
 function [fval,dlikhyp] = elbolik(hyp,m,fs)
 m.pars.hyp.lik(end) = hyp;
-nsamples = size(fs,2);
+nSamples = size(fs,2);
 [logllh,dlikhyp] = fastLikelihood(m.likfunc,m.Y,fs,m.pars.hyp,m.N,m.Q);
-dlikhyp = -dlikhyp(end)/nsamples;
-fval = -sum(logllh)/nsamples;
+dlikhyp = -dlikhyp(end)/nSamples;
+fval = -sum(logllh)/nSamples;
 end
 
 

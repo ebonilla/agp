@@ -30,7 +30,7 @@ m.Q     = Q;
 %% Parameter initialization
 % variational parameters for the total number of latent variables
 m.pars.M                      = zeros(nTotal,1);     % the mean parameters
-m.pars.L                      = zeros(nTotal,1);     % the linear parametrisation of the cov matrix
+m.pars.L                      = -2*(1./1e10)*ones(nTotal,1);     % the linear parametrisation of the cov matrix
 
 %% Initialisation of posterior covariances of unary nodes
 for j = 1 : Q
@@ -43,10 +43,11 @@ end
 
 %
 %% covariance hyperparameters
-m.pars.hyp.covfunc = @covLINone;                   % cov function
-m.pars.hyp.cov = cell(Q,1);                       % cov hyperparameters
-nhyper         = eval(feval(m.pars.hyp.covfunc));
-m.pars.hyp.cov{1} = log(ones(nhyper,1));
+m.pars.hyp.covfunc  = @covLINone;                   % cov function
+m.pars.hyp.cov      = cell(Q,1);                       % cov hyperparameters
+nhyper              = eval(feval(m.pars.hyp.covfunc));
+matHyper            = log(ones(Q,nhyper));
+m.pars.hyp.cov      = mat2cell(matHyper,ones(Q,1),nhyper);
 
 %% Optimization settings
 conf.nsamples                 = 2000;               % number of samples for gradient estimator
@@ -57,14 +58,14 @@ conf.hypiter                  = 5;                  % maxiter for optim the cov 
 conf.likiter                  = 5;                  % maxiter for optim the likelihood hyperparameter (per iteration)
 conf.displayInterval          = 20;                 % intervals to display some progress 
 conf.checkVarianceReduction   = false;              % show diagnostic for variance reduction?
-conf.learnhyp                 = true;             
+conf.learnhyp                 = false;             
 conf.latentnoise              = 0;                  % minimum noise level of the latent function
 
 %% Model setting
-m.likfunc                     = ll_train;     % likelihood function
-m.pars.hyp.likfunc            = ll_train;   % I AM HERE      
+m.likfunc                     = ll_train;         % likelihood function
+m.pars.hyp.likfunc            = ll_train;         % I AM HERE      
 m.pred                        = @predRegression;  % prediction 
-% m.pars.hyp.lik = log(sqrt(0.01));                 % likelihood parameters
+ m.pars.hyp.lik =             [];                 % likelihood parameters
 
 tic;
 m = learnFullGaussianStructured(m,conf);

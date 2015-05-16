@@ -1,4 +1,4 @@
-function [lp, ymu, ys2] = predWarp(m,conf,xstar,ystar)
+0function [lp, ymu, ys2] = predWarp(m,conf,xstar,ystar)
 %PREDWARP [lp, ymu, ys2] = predWarp(m,conf,xstar,ystar)
 %   Prediction by the warped GPs model.
 %     p(y*|x*) = dt(y*)/d(y*) p(t(y*)|x*)
