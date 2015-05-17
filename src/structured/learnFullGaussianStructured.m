@@ -36,7 +36,7 @@ for j = 1 : Q
     K{j}    = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, m.X) + sn2*eye(N);
     LKchol{j} = jit_chol(K{j});
 end
-iter = 1;
+iter = 0;
 while true
   %% E-step : optimize variational parameters
   theta = [m.pars.M; m.pars.L];
@@ -50,14 +50,14 @@ while true
   m.pars.M = theta(1:numel(m.pars.M));
   m.pars.L = theta(numel(m.pars.M)+1:end);
   % update S using new lambda
-  for j = 1 : Q
+  for j = 1 : Q + 1
     % S = (K^{-1} - 2*diag(lambda))^{-1}
     lambda = m.pars.L(s_rows(j):e_rows(j));
     m.pars.S{j} = K{j} - K{j}*((-diag(1./(2*lambda))+K{j})\K{j});
   end
   fval = [fval; fX(end)];
 
-  %--- gradient-based optimization for covariance hyperparameters
+  %% Gradient-based optimization for covariance hyperparameters
   if conf.learnhyp
     hyp0 = minimize(m.pars.hyp.cov, @elboCovhyp, conf.hypiter, m, m.pars.S, sn2);
     m.pars.hyp.cov = hyp0;
@@ -72,7 +72,7 @@ while true
     break;
   end
   
-  %-- update likelihood parameters
+  %% Update likelihood parameters
   if numel(m.pars.hyp.lik) > 0
     fs = zeros(m.Q*m.N, conf.nsamples);
     for j=1:m.Q
@@ -85,19 +85,26 @@ while true
     disp('new lik hyp')
     disp(exp(2*m.pars.hyp.lik(end)))
   end
+  if ( mod(iter,10)==0 )
+      str = datestr(now);
+      save(['model-',str,',.mat'], 'm');
+  end
   % Commented out by EVB
   %predictionFullHelper(iter,conf,m);
-  iter = iter + 1;
   if iter > conf.maxiter %|| delta < 1e-2
     break
   end
+  
+  iter = iter + 1;
+  fprintf('Iteration %d done \n', iter);
 end
 
-figure; hold off;
-fval = -fval;
-plot(1:numel(fval),fval,'-');
-title('objective values');
 m.fval = fval;
+%figure; hold off;
+%fval = -fval;
+%plot(1:numel(fval),fval,'-');
+%title('objective values');
+%m.fval = fval;
 end
 
 %% the negative elbo and its gradient wrt variational parameters

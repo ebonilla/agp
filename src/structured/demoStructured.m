@@ -5,7 +5,7 @@ clear; clc; close all;
 rng(1110, 'twister');
 
 %% Get data for chunking problem
-NTRAIN              = 5; % Number of sequences
+NTRAIN              = 50; % Number of sequences
 DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 FOLD_ID             = 1;
 
@@ -59,8 +59,8 @@ conf.hypiter                  = 5;                  % maxiter for optim the cov 
 conf.likiter                  = 5;                  % maxiter for optim the likelihood hyperparameter (per iteration)
 conf.displayInterval          = 20;                 % intervals to display some progress 
 conf.checkVarianceReduction   = false;              % show diagnostic for variance reduction?
-conf.learnhyp                 = false;             
-conf.latentnoise              = 0;                  % minimum noise level of the latent function
+conf.learnhyp                 = true;             
+conf.latentnoise              = 1e-3;                  % minimum noise level of the latent function
 
 %% Model setting
 m.likfunc                     = ll_train;         % likelihood function
@@ -69,14 +69,11 @@ m.pred                        = @predStructured;  % prediction
  m.pars.hyp.lik =             [];                 % likelihood parameters
 
  
-m    = learnFullGaussianStructured(m,conf);
-
-save('model.mat');
-marginals = feval(m.pred, m, conf, data_test);
-
+m               = learnFullGaussianStructured(m,conf);
+marginals       = feval(m.pred, m, conf, data_test);
 [avgError, nlp] =  computeErrorStructured(marginals, Y_test_vector);
 
-
+save('final.mat');
 
 
 
