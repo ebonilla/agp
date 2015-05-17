@@ -40,6 +40,13 @@ iter = 0;
 while true
   %% E-step : optimize variational parameters
   theta = [m.pars.M; m.pars.L];
+  
+  % Check derivatives
+  % theta = rand(size(theta));
+  [diff_deriv, gfunc, gnum] = derivativeCheck(@elbo,theta,1,1,m,conf,K,LKchol,s_rows,e_rows);
+  
+  
+  
   [theta,fX,~] = minimize(theta,@elbo,conf.variter,m,conf,K,LKchol,s_rows,e_rows);
   
   
@@ -61,7 +68,7 @@ while true
   if conf.learnhyp
     hyp0 = minimize(m.pars.hyp.cov, @elboCovhyp, conf.hypiter, m, m.pars.S, sn2);
     m.pars.hyp.cov = hyp0;
-    for j=1:Q
+    for j = 1 : Q
       K{j} = feval(m.pars.hyp.covfunc, hyp0{j}, m.X) + sn2*eye(N);
       LKchol{j} = jit_chol(K{j});
     end
@@ -108,19 +115,20 @@ m.fval = fval;
 end
 
 %% the negative elbo and its gradient wrt variational parameters
-function [fval,grad] = elbo(theta,m,conf,K,LKchol,s_rows,e_rows,updateS)
+function [fval,grad] = elbo(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
   if nargin == 7
     % don't need to update S unless we are optimizing the variational parameters
     updateS = true;
   end
   rng(10101,'twister');
-  Q = m.Q; 
-  vec_N = [m.N*ones(Q,1); size(K{Q+1},1)];
-  m.pars.M = theta(1:numel(m.pars.M));
-  m.pars.L = theta(numel(m.pars.M)+1:end);
-  dM = zeros(size(m.pars.M));
-  dL = zeros(size(m.pars.L));
-  % entropy + neg cross entropy part
+  Q         = m.Q; 
+  vec_N     = [m.N*ones(Q,1); size(K{Q+1},1)]; % vector of matrix sizes
+  m.pars.M  = theta(1:numel(m.pars.M));
+  m.pars.L  = theta(numel(m.pars.M)+1:end);
+  dM        = zeros(size(m.pars.M));
+  dL        = zeros(size(m.pars.L));
+  
+  %% KL term [entropy + neg cross entropy part]
   for j = 1 : Q + 1
     % new value of L leads to new value for S
     if updateS
@@ -132,8 +140,8 @@ function [fval,grad] = elbo(theta,m,conf,K,LKchol,s_rows,e_rows,updateS)
     fvalEnt = sum(log(diag(LSchol))); % entropy
     fvalNCE = 2*sum(log(diag(LKchol{j}))) + m.pars.M(s_rows(j):e_rows(j))'*Kinvm...
       + trAB(KinvLj,LSchol');
-
-    %% gradient 
+    %
+    % gradient 
     if nargout > 1
       dM(s_rows(j):e_rows(j)) = -Kinvm;
       A = inv(eye(vec_N(j))-2*AdiagB(K{j},diag(m.pars.L(s_rows(j):e_rows(j)))));
@@ -146,30 +154,31 @@ function [fval,grad] = elbo(theta,m,conf,K,LKchol,s_rows,e_rows,updateS)
     fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', ...
       diag(m.pars.S{j})', conf.nsamples)';
   end
+  
+  %% ELL and its gradients
   if nargout == 1
-    fval1 = computeNoisyGradient(m,fs, s_rows, e_rows, conf);
+    ell = computeNoisyGradient(m,fs, s_rows, e_rows, conf);
   else
-    [fval1,dM1,dL1] = computeNoisyGradient(m,fs, s_rows, e_rows, conf);
+    [ell, dell_dm, dell_dl] = computeNoisyGradient(m,fs, s_rows, e_rows, conf);
     % grad_{lambda} E_q log p(y|f) = 2(S.*S) grad_{diag(S)} E_q logp(y|f)
-    for j=1:Q
-      dL1(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dL1(s_rows(j):e_rows(j));
+    for j = 1 : Q + 1
+      dell_dl(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dell_dl(s_rows(j):e_rows(j));
     end
-    dM = dM + dM1;
-    dL = dL + dL1;
+    dM = dM + dell_dm;
+    dL = dL + dell_dl;
     grad = -[dM; dL];
   end
-  fval = -(fvalEnt - 0.5*fvalNCE + fval1);
-end
+  fval = -(fvalEnt - 0.5*fvalNCE + ell);
+end 
 
-% compute the noisy gradient using the given samples
+%% compute ELL and gradients using the given samples
 function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
   % m : model
   % fs : the samples f ~ q(f | lambda_k)
   % conf.cvsamples : number of samples used for estimating the optimal control
   % variate factor
-  N = m.N; Q = m.Q;
+  Q        = m.Q;
   nSamples = size(fs,2);
-  nBinary = Q^2;
   nTotal   = m.max; % Total number of latent variables
   nSeq     = size(m.Y,1); % Number of sequences
   
@@ -188,7 +197,8 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
   for s = 1 : nSamples
     vec_ll(:,s) = feval(m.likfunc, fs(:,s)); % the labels are included in the anonymous function
   end  
-  fval = sum(mean(vec_ll,2)); % sum (over n) of average likelihoods over empirical distribution (samples)
+  fsum_n = sum(vec_ll,1); % sum over n
+  fval = sum(fsum_n)/nSamples; %  sum of average likelihoods over empirical distribution (samples)
   
   %% gradients are required
   if nargout > 1
@@ -197,14 +207,17 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
     dL = 0.5*(dM.^2 - repmat(sinv,nSamples,1));
     
     logllh = zeros(nTotal, nSamples);
-    %% assign likelihood to respective nodes
+    %% assign likelihood to respective unary nodes
     for i = 1 : nSeq
-        idx = m.unary{i};
+        idx = m.unary{i}(:);
         logllh(idx, :) = bsxfun(@plus, logllh(idx, :), vec_ll(i,:));
     end
     clear vec_ll;
-    idx          = m.binary(:);
-    logllh(idx)  =  fval;  % weight of grads for binary nodes is the sum of the ELL
+    
+    %% assing likelihood to binary nodes
+    idx            = m.binary(:);
+    logllh(idx,:)  =  bsxfun(@plus, logllh(idx, :), fsum_n);  % weight of grads for binary nodes is the sum of the ELL
+
     %% some useful constructs
     %logllh = reshape(logllh,N,nSamples);
     %logllh = repmat(logllh,2*Q,1); % size (2*N*Q)xS
@@ -213,16 +226,20 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
     %
     logllh = repmat(logllh, 2, 1); % size (2*nTotal)xS
     dML = [reshape(dM, nTotal, nSamples); reshape(dL,nTotal,nSamples)];
+            
+    %% the noisy gradient using the control variates
+    grads = logllh.*dML; 
     
-    pz = dML(:,1 : conf.cvsamples)';
-    py = logllh(:,1:conf.cvsamples)'.*pz;
-    above = sum((py - repmat(mean(py),conf.cvsamples,1)).*pz)/(conf.cvsamples-1);
-    below = sum(pz.^2)/(conf.cvsamples-1); % var(z) with E(z) = 0
-    cvopt = above ./ below;
-    cvopt(isnan(cvopt)) = 0;
-
-    % the noisy gradient using the control variates
-    grads = logllh.*dML - repmat(cvopt',1,nSamples).*dML;
+    %% adding control variates
+%     pz = dML(:,1 : conf.cvsamples)';
+%     py = logllh(:,1:conf.cvsamples)'.*pz;
+%     above = sum((py - repmat(mean(py),conf.cvsamples,1)).*pz)/(conf.cvsamples-1);
+%     below = sum(pz.^2)/(conf.cvsamples-1); % var(z) with E(z) = 0
+%     cvopt = above ./ below;
+%     cvopt(isnan(cvopt)) = 0;
+%     ah    =  repmat(cvopt',1,nSamples).*dML;
+%     grads = grads - ah; 
+    
     grad = mean(grads,2);
     
     % NOTE: this is not the true variance reduction as this

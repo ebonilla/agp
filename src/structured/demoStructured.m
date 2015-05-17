@@ -4,24 +4,28 @@
 clear; clc; close all;
 rng(1110, 'twister');
 
+
 %% Get data for chunking problem
-NTRAIN              = 50; % Number of sequences
+NTRAIN              = 3; % Number of sequences
 DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 FOLD_ID             = 1;
 
-[ll_train, predMarginal, Y_test_vector, nLabels, data_train, data_test] = ...
-    getData(NTRAIN, DATA_PATH, FOLD_ID);
+[data_train, data_test, ll_train,  Y_test_vector] = ...
+    getDataSmall(NTRAIN, DATA_PATH, FOLD_ID);
+
+%% DELETE ME: FOR TEST PURPOSES ONLY
 
 
 %% Parameters for memory allocation
-Q       = nLabels; % for unary nodes. we treat the binary nodes separately
-N       = data_train.TT;
-D       = size(data_train.X,2);
-nUnary  = N*nLabels;
-nBinary = nLabels^2;
-nTotal  = data_train.max;  % nUnary + nBinary;
-%
 m       = data_train; % model
+clear data_train;
+Q       = m.nLabels; % for unary nodes. we treat the binary nodes separately
+N       = m.TT;
+D       = size(m.X,2);
+nUnary  = N*Q;
+nBinary = Q^2;
+nTotal  = m.max;  % nUnary + nBinary;
+%
 m.N     = N;
 m.Q     = Q;
 
@@ -73,7 +77,7 @@ m               = learnFullGaussianStructured(m,conf);
 marginals       = feval(m.pred, m, conf, data_test);
 [avgError, nlp] =  computeErrorStructured(marginals, Y_test_vector);
 
-save('final.mat');
+%save('final.mat');
 
 
 
