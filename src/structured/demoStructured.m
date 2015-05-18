@@ -36,16 +36,6 @@ m.Q     = Q;
 m.pars.M                      = zeros(nTotal,1);     % the mean parameters
 m.pars.L                      = -2*(1./1e10)*ones(nTotal,1);     % the linear parametrisation of the cov matrix
 
-%% Initialisation of posterior covariances of unary nodes
-for j = 1 : Q
-  % free initial values 
-  m.pars.S{j} = eye(N);                  % the cov matrix
-end
-
-%% Initialise psoterior covariance of binary nodes (we assume it's diagonal so this wastes a bit of computation) 
- m.pars.S{Q+1} = eye(nBinary); 
-
-%
 %% covariance hyperparameters
 m.pars.hyp.covfunc  = @covLINone;                   % cov function
 m.pars.hyp.cov      = cell(Q,1);                       % cov hyperparameters

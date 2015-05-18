@@ -43,11 +43,11 @@ while true
   
   % Check derivatives
   % theta = rand(size(theta));
-  [diff_deriv, gfunc, gnum] = derivativeCheck(@elbo,theta,1,1,m,conf,K,LKchol,s_rows,e_rows);
+  [diff_deriv, gfunc, gnum] = derivativeCheck(@elbo, theta, 1, 1, m, conf, K, LKchol, s_rows, e_rows, true);
   
+ 
   
-  
-  [theta,fX,~] = minimize(theta,@elbo,conf.variter,m,conf,K,LKchol,s_rows,e_rows);
+  [theta,fX,~] = minimize(theta, @elbo, conf.variter, m, conf, K, LKchol, s_rows, e_rows, true);
   
   
   delta_m = mean(abs(m.pars.M(:)-theta(1:numel(m.pars.M))));
@@ -116,10 +116,6 @@ end
 
 %% the negative elbo and its gradient wrt variational parameters
 function [fval,grad] = elbo(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
-  if nargin == 7
-    % don't need to update S unless we are optimizing the variational parameters
-    updateS = true;
-  end
   rng(10101,'twister');
   Q         = m.Q; 
   vec_N     = [m.N*ones(Q,1); size(K{Q+1},1)]; % vector of matrix sizes
@@ -150,16 +146,19 @@ function [fval,grad] = elbo(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
   end
 
   %% sample from the marginal posteriors
+  nTotal = numel(m.pars.M);
+  Fs = zeros(nTotal,  conf.nsamples);
+%  z  = randn(nTotal, conf.nsamples);
   for j =1 : Q + 1
-    fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', ...
-      diag(m.pars.S{j})', conf.nsamples)';
+     Fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', diag(m.pars.S{j})', conf.nsamples)';
+%    ptr = s_rows(j):e_rows(j);    mu_fs  = m.pars.M(ptr,:);    dev_fs = sqrt(diag(m.pars.S{j}));   Fs(ptr,:) = bsxfun(@plus, mu_fs,  bsxfun(@times,z(ptr,:), dev_fs));
   end
   
   %% ELL and its gradients
   if nargout == 1
-    ell = computeNoisyGradient(m,fs, s_rows, e_rows, conf);
+    ell = computeNoisyGradient(m, Fs, s_rows, e_rows, conf);
   else
-    [ell, dell_dm, dell_dl] = computeNoisyGradient(m,fs, s_rows, e_rows, conf);
+    [ell, dell_dm, dell_dl] = computeNoisyGradient(m, Fs, s_rows, e_rows, conf);
     % grad_{lambda} E_q log p(y|f) = 2(S.*S) grad_{diag(S)} E_q logp(y|f)
     for j = 1 : Q + 1
       dell_dl(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dell_dl(s_rows(j):e_rows(j));
@@ -172,7 +171,7 @@ function [fval,grad] = elbo(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
 end 
 
 %% compute ELL and gradients using the given samples
-function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
+function [fval, dM, dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
   % m : model
   % fs : the samples f ~ q(f | lambda_k)
   % conf.cvsamples : number of samples used for estimating the optimal control
@@ -231,14 +230,14 @@ function [fval,dM,dL] = computeNoisyGradient(m, fs, s_rows, e_rows, conf)
     grads = logllh.*dML; 
     
     %% adding control variates
-%     pz = dML(:,1 : conf.cvsamples)';
-%     py = logllh(:,1:conf.cvsamples)'.*pz;
-%     above = sum((py - repmat(mean(py),conf.cvsamples,1)).*pz)/(conf.cvsamples-1);
-%     below = sum(pz.^2)/(conf.cvsamples-1); % var(z) with E(z) = 0
-%     cvopt = above ./ below;
-%     cvopt(isnan(cvopt)) = 0;
-%     ah    =  repmat(cvopt',1,nSamples).*dML;
-%     grads = grads - ah; 
+    pz = dML(:,1 : conf.cvsamples)';
+    py = logllh(:,1:conf.cvsamples)'.*pz;
+    above = sum((py - repmat(mean(py),conf.cvsamples,1)).*pz)/(conf.cvsamples-1);
+    below = sum(pz.^2)/(conf.cvsamples-1); % var(z) with E(z) = 0
+    cvopt = above ./ below;
+    cvopt(isnan(cvopt)) = 0;
+    ah    =  repmat(cvopt',1,nSamples).*dML;
+    grads = grads - ah; 
     
     grad = mean(grads,2);
     
