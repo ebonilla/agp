@@ -43,12 +43,9 @@ while true
   
   % Check derivatives
   % theta = rand(size(theta));
-  [diff_deriv, gfunc, gnum] = derivativeCheck(@elbo, theta, 1, 1, m, conf, K, LKchol, s_rows, e_rows, true);
-  
- 
+  %[diff_deriv, gfunc, gnum] = derivativeCheck(@elbo, theta, 1, 1, m, conf, K, LKchol, s_rows, e_rows, true);
   
   [theta,fX,~] = minimize(theta, @elbo, conf.variter, m, conf, K, LKchol, s_rows, e_rows, true);
-  
   
   delta_m = mean(abs(m.pars.M(:)-theta(1:numel(m.pars.M))));
   delta_l = mean(abs(m.pars.L(:)-theta(numel(m.pars.M)+1:end)));
@@ -94,7 +91,7 @@ while true
   end
   if ( mod(iter,10)==0 )
       str = datestr(now);
-      save(['model-',str,',.mat'], 'm');
+      save(['model-',str,'.mat'], 'm');
   end
   % Commented out by EVB
   %predictionFullHelper(iter,conf,m);
@@ -128,7 +125,8 @@ function [fval,grad] = elbo(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
   for j = 1 : Q + 1
     % new value of L leads to new value for S
     if updateS
-      m.pars.S{j} = K{j} - K{j}*((-diag(1./(2*m.pars.L(s_rows(j):e_rows(j))))+K{j})\K{j});
+        lambda = m.pars.L(s_rows(j):e_rows(j));
+        m.pars.S{j} = K{j} - K{j}*((-diag(1./(2*lambda))+K{j})\K{j});
     end  
     LSchol = jit_chol(m.pars.S{j})';
     Kinvm = solve_chol(LKchol{j},m.pars.M(s_rows(j):e_rows(j))); % K^{-1}m
