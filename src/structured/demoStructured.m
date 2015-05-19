@@ -6,33 +6,40 @@ rng(1110, 'twister');
 
 
 %% Get data for chunking problem
-NTRAIN              = 50; % Number of sequences
+NTRAIN              = 3; % Number of sequences
 DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 FOLD_ID             = 1;
 
 [data_train, data_test, ll_train,  Y_test_vector] = ...
-    getData(NTRAIN, DATA_PATH, FOLD_ID);
+    getDataSmall(NTRAIN, DATA_PATH, FOLD_ID);
 
 
 %% Parameters for memory allocation
-m       = data_train; % model
-clear data_train;
-Q       = m.nLabels; % for unary nodes. we treat the binary nodes separately
-N       = m.TT;
-D       = size(m.X,2);
-nUnary  = N*Q;
+Q       = data_train.nLabels; % for unary nodes. we treat the binary nodes separately
+Nx      = data_train.TT;      % total number of feature fectors
+D       = size(data_train.X,2);
+nUnary  = Nx*Q;
 nBinary = Q^2;
-nTotal  = m.max;  % nUnary + nBinary;
+nTotal  = data_train.max;  % Total number of nodes
 %
-m.N     = N;
-m.Q     = Q;
-
+m.Nx        = Nx;
+m.Q         = Q;
+m.D         = D;
+m.nUnary    = nUnary;
+m.nBinary   = nBinary;
+m.nSeq      = data_train.N; % Number of sequences
+m.nTotal    = nTotal;
+m.idxUnary  = data_train.unary;
+m.idxBinary = data_train.binary; 
 % 
 
 %% Parameter initialization
 % variational parameters for the total number of latent variables
 m.pars.M                      = zeros(nTotal,1);     % the mean parameters
 m.pars.L                      = -2*(1./1e10)*ones(nTotal,1);     % the linear parametrisation of the cov matrix
+
+% for Q+1 we have the actual variances
+m.pars.L(nTotal-nBinary+1:nTotal) = ones(nBinary,1);
 
 %% covariance hyperparameters
 m.pars.hyp.covfunc  = @covLINone;                   % cov function
@@ -52,7 +59,7 @@ conf.likiter                  = 5;                  % maxiter for optim the like
 conf.displayInterval          = 20;                 % intervals to display some progress 
 conf.checkVarianceReduction   = false;              % show diagnostic for variance reduction?
 conf.learnhyp                 = true;             
-conf.latentnoise              = 1e-3;                  % minimum noise level of the latent function
+conf.latentnoise              = 1e-4;                  % minimum noise level of the latent function
 
 %% Model setting
 m.likfunc                     = ll_train;         % likelihood function
@@ -60,10 +67,9 @@ m.pars.hyp.likfunc            = ll_train;         % I AM HERE
 m.pred                        = @predStructured;  % prediction 
  m.pars.hyp.lik =             [];                 % likelihood parameters
 
- 
-m               = learnFullGaussianStructured(m,conf);
-marginals       = feval(m.pred, m, conf, data_test);
-[avgError, nlp] =  computeErrorStructured(marginals, Y_test_vector);
+m               = learnFullGaussianStructured(m, conf, data_train);
+marginals       = feval(m.pred, m, conf, data_train.X, data_test);
+[avgError, nlp, maxMargPost] =  computeErrorStructured(marginals, Y_test_vector);
 
 str = datestr(now);
 save(['final-',str,'.mat']);

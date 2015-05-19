@@ -1,4 +1,4 @@
-function [avgError, nlp] =  computeErrorStructured(marginals, Y_test_vector)
+function [avgError, nlp, maxMargPost] =  computeErrorStructured(marginals, Y_test_vector)
 TT_test = length(Y_test_vector);
 [foo, maxMargPost] = max(sum(marginals, 3), [], 2);
 avgError = sum(maxMargPost ~= Y_test_vector) / TT_test;
