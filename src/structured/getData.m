@@ -1,4 +1,4 @@
-function [ll_train, prediction_fun, Y_test_vector, nLabels, data_train, data_test] = getData(N_data, dirName, fold)
+function [data_train, data_test, ll_train,  Y_test_vector] = getData(N_data, dirName, fold)
 % return ll_fun, prediction_fun, score_fun
  
 useMex = 1;

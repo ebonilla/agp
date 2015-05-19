@@ -6,12 +6,12 @@ rng(1110, 'twister');
 
 
 %% Get data for chunking problem
-NTRAIN              = 2; % Number of sequences
+NTRAIN              = 50; % Number of sequences
 DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 FOLD_ID             = 1;
 
 [data_train, data_test, ll_train,  Y_test_vector] = ...
-    getDataSmall(NTRAIN, DATA_PATH, FOLD_ID);
+    getData(NTRAIN, DATA_PATH, FOLD_ID);
 
 
 %% Parameters for memory allocation
