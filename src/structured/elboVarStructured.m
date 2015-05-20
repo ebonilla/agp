@@ -8,22 +8,27 @@ m.pars.L  = theta(numel(m.pars.M)+1:end);
 dM        = zeros(size(m.pars.M));
 dL        = zeros(size(m.pars.L));
   
-%% KL term [entropy + neg cross entropy part]
-% computing for Q+1
+%% KL term [entropy + neg cross entropy part] for Q + 1
 j = Q + 1;
 mu           =  m.pars.M(s_rows(j):e_rows(j));
-lambda       =  m.pars.L(s_rows(j):e_rows(j));
-m.pars.S{j}  =  diag(lambda);
-diagK        =  diag(K{j});
-invK         = 1./diagK;
-fvalEnt      =  0.5*sum(log(lambda)); % (1/2) log det (S) : S is a diagonal matrix
-fvalNCE      =  -0.5*sum(log(diagK) ... % -0.5 log det K:  K{j} is diagonal here
-                -0.5*(mu.^2)'*invK) ... %  -0.5  m' K^{-1} m
-                -0.5*invK'*lambda;  % -0.5 trace (K^-1 S)
+s            =  m.pars.L(s_rows(j):e_rows(j));
+dimS         = length(s); % dimensionality of the Gaussian
+sinv         = 1./s;
+m.pars.S{j}  =  diag(s);
+k            =  diag(K{j});
+kinv         = 1./k;
+fvalEnt      =  0.5*sum(log(s));       % (1/2) log det (S) : S is a diagonal matrix
+fvalNCE      =  -0.5*sum(log(k)) ...   % -0.5 log det K:  K{j} is diagonal here
+                -0.5*(mu.^2)'*kinv ... %  -0.5  m' K^{-1} m
+                -0.5*kinv'*s  ...      % -0.5 trace (K^-1 S)
+                +0.5*dimS;
 ptr         =  s_rows(j):e_rows(j);
-dM(ptr)     = -invK.*mu;
-dL(ptr)     = 0.5*(1./lambda - invK);
-%
+if (nargout > 1) % gradient
+    dM(ptr)     = -kinv.*mu;
+    dL(ptr)     = 0.5*(sinv - kinv);
+end
+
+%% KL term [entropy + neg cross entropy part] for all j <= Q 
 for j = 1 : Q 
     % new value of L leads to new value for S
     if updateS
@@ -36,7 +41,8 @@ for j = 1 : Q
     fvalEnt = fvalEnt +  sum(log(diag(LSchol))); % entropy
     fvalNCE = fvalNCE - sum(log(diag(LKchol{j}))) ... 
                       - 0.5*m.pars.M(s_rows(j):e_rows(j))'*Kinvm...
-                      - 0.5*trAB(KinvLj,LSchol');
+                      - 0.5*trAB(KinvLj,LSchol') ...
+                      + 0.5*m.Nx;
     %
     % gradient 
     if nargout > 1
@@ -60,6 +66,7 @@ end
     ell = computeELLStructured(m, Fs, s_rows, e_rows, conf);
   else
     [ell, dell_dm, dell_dl] = computeELLStructured(m, Fs, s_rows, e_rows, conf);
+    
     % grad_{lambda} E_q log p(y|f) = 2(S.*S) grad_{diag(S)} E_q logp(y|f)
     for j = 1 : Q 
       dell_dl(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dell_dl(s_rows(j):e_rows(j));
@@ -69,4 +76,19 @@ end
     grad = -[dM; dL];
   end
   fval = -(fvalEnt +  fvalNCE + ell);
+
+
+
+
+
 end 
+
+
+
+
+
+
+
+
+
+

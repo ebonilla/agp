@@ -33,7 +33,7 @@ s_rows      = [s_rows; e_rows(end)+1];         % Adding entries for binary nodes
 e_rows      = [e_rows; e_rows(end) + nBinary];
 %
 for j = 1 : Q
-    K{j}    = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, data_train.X) + sn2*eye(Nx);
+    K{j}      = feval(m.pars.hyp.covfunc, m.pars.hyp.cov{j}, data_train.X) + sn2*eye(Nx);
     LKchol{j} = jit_chol(K{j});
 end
 
@@ -46,7 +46,7 @@ while true
   
   % Check derivatives
   % theta = rand(size(theta));
-  [diff_deriv, gfunc, gnum] = derivativeCheck(@elboVarStructured, theta, 1, 1, m, conf, K, LKchol, s_rows, e_rows, true);
+  % [diff_deriv, gfunc, gnum] = derivativeCheck(@elboVarStructured, theta, 1, 1, m, conf, K, LKchol, s_rows, e_rows, true);
   
   [theta,fX,~] = minimize(theta, @elboVarStructured, conf.variter, m, conf, K, LKchol, s_rows, e_rows, true);
   
@@ -54,12 +54,16 @@ while true
   delta_l = mean(abs(m.pars.L(:)-theta(numel(m.pars.M)+1:end)));
   fprintf('variational change m= %.4f\n', delta_m);
   fprintf('variational change s= %.4f\n', delta_l);
+  
   m.pars.M = theta(1:numel(m.pars.M));
   m.pars.L = theta(numel(m.pars.M)+1:end);
-  % update S using new lambda
-  j = Q+1;
-  lambda = m.pars.L(s_rows(j):e_rows(j));
-  m.pars.S{j}  =  diag(lambda);
+  
+  %% update S for binary node functions
+  j            = Q + 1;
+  s            = m.pars.L(s_rows(j):e_rows(j));
+  m.pars.S{j}  =  diag(s);
+  
+  %% Update S for unary node functions
   for j = 1 : Q
     % S = (K^{-1} - 2*diag(lambda))^{-1}
     lambda = m.pars.L(s_rows(j):e_rows(j));
@@ -99,8 +103,7 @@ while true
       str = datestr(now);
       save(['model-',str,'.mat'], 'm');
   end
-  % Commented out by EVB
-  %predictionFullHelper(iter,conf,m);
+  
   if iter > conf.maxiter %|| delta < 1e-2
     break
   end

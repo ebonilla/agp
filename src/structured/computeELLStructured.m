@@ -1,12 +1,12 @@
-function [fval, dM, dL] = computeELLStructured(m, fs, s_rows, e_rows, conf)
+function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
 %% compute ELL and gradients using the given samples
 
   % m : model
-  % fs : the samples f ~ q(f | lambda_k)
+  % Fs : the samples f ~ q(f | lambda_k)
   % conf.cvsamples : number of samples used for estimating the optimal control
   % variate factor
   Q        = m.Q;
-  nSamples = size(fs,2);
+  nSamples = size(Fs,2);
   nTotal   = m.nTotal; % Total number of latent variables
   nSeq     = m.nSeq; % Number of sequences
   
@@ -19,18 +19,18 @@ function [fval, dM, dL] = computeELLStructured(m, fs, s_rows, e_rows, conf)
   end
   
   % EVB: Replaced this with structured likelihood
-  %logllh = fastLikelihood(m.likfunc,m.Y,fs,m.pars.hyp,N,Q);
+  %logllh = fastLikelihood(m.likfunc,m.Y,Fs,m.pars.hyp,N,Q);
   % 
   vec_ll   = zeros(nSeq,nSamples); % log likelihood for all data-points
   for s = 1 : nSamples
-    vec_ll(:,s) = feval(m.likfunc, fs(:,s)); % the labels are included in the anonymous function
+    vec_ll(:,s) = feval(m.likfunc, Fs(:,s)); % the labels are included in the anonymous function
   end  
   fsum_n = sum(vec_ll,1); % sum over n
-  fval = sum(fsum_n)/nSamples; %  sum of average likelihoods over empirical distribution (samples)
+  fval = mean(fsum_n); %  sum of average likelihoods over empirical distribution (samples)
   
   %% gradients are required
   if nargout > 1
-    f0 = fs(:)-repmat(m.pars.M,nSamples,1);
+    f0 = Fs(:)-repmat(m.pars.M,nSamples,1);
     dM = f0.*repmat(sinv,nSamples,1);
     dL = 0.5*(dM.^2 - repmat(sinv,nSamples,1));
     
