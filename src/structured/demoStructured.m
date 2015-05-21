@@ -1,17 +1,19 @@
-%%
+function demoStructured(fold_id)
 % here we choose the number of tasks as the number of Lables 
-% and threat the binary nodes separately
-clear; clc; close all;
+% and treat the binary nodes separately
+%clear; clc; close all;
 rng(1110, 'twister');
+DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 
 
 %% Get data for chunking problem
-NTRAIN              = 3; % Number of sequences
-DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
-FOLD_ID             = 1;
-
+NTRAIN              = 50; % Number of sequences
 [data_train, data_test, ll_train,  Y_test_vector] = ...
-    getDataSmall(NTRAIN, DATA_PATH, FOLD_ID);
+    getData(NTRAIN, DATA_PATH, fold_id);
+
+%NTRAIN              = 3; % Number of sequences
+%[data_train, data_test, ll_train,  Y_test_vector] = ...
+%    getDataSmall(NTRAIN, DATA_PATH, fold_id);
 
 
 %% Parameters for memory allocation
@@ -53,8 +55,8 @@ conf.nsamples                 = 2000;               % number of samples for grad
 conf.ntestsamples             = 10000; 
 conf.covfunc                  = m.pars.hyp.covfunc; % covariance function
 conf.maxiter                  = 100;                % how many optimization iterations to run?
-conf.variter                  = 10;                 % maxiter for optim the variational hyperparameter (per iteration)
-conf.hypiter                  = 5;                  % maxiter for optim the cov hyperparameter (per iteration)
+conf.variter                  = 50;                 % maxiter for optim the variational hyperparameter (per iteration)
+conf.hypiter                  = 10;                  % maxiter for optim the cov hyperparameter (per iteration)
 conf.likiter                  = 5;                  % maxiter for optim the likelihood hyperparameter (per iteration)
 conf.displayInterval          = 20;                 % intervals to display some progress 
 conf.checkVarianceReduction   = false;              % show diagnostic for variance reduction?
@@ -72,7 +74,7 @@ marginals       = feval(m.pred, m, conf, data_train.X, data_test);
 [avgError, nlp, maxMargPost] =  computeErrorStructured(marginals, Y_test_vector);
 
 str = datestr(now);
-save(['final-',str,'.mat']);
+save(['final-fold-',num2str(fold_id),'-',str,'.mat']);
 
 
 

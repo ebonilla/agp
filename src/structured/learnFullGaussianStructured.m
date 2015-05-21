@@ -73,6 +73,8 @@ while true
 
   %% Gradient-based optimization for covariance hyperparameters
   if conf.learnhyp
+   [diff_deriv, gfunc, gnum] = derivativeCheck(fHyper, cell2mat(m.pars.hyp.cov), 1, 1, m, sn2);
+  
     hyp0 = minimize(m.pars.hyp.cov, fHyper, conf.hypiter, m, sn2);
     m.pars.hyp.cov = hyp0;
     for j = 1 : Q   % updating covariances with new hyperparameters
