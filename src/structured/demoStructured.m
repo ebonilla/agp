@@ -1,18 +1,28 @@
-function demoStructured(fold_id)
+function demoStructured(fold_id, previousRunFile)
 % here we choose the number of tasks as the number of Lables 
 % and treat the binary nodes separately
 %clear; clc; close all;
 rng(1110, 'twister');
-DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 
+if (nargin == 2)
+    runFromFile(previousRunFile);
+else
+    runSingle(fold_id);
+end
+
+end
+
+%% runSingle
+function runSingle(fold_id)
+DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 
 %% Get data for chunking problem
 NTRAIN              = 50; % Number of sequences
 [data_train, data_test, ll_train,  Y_test_vector] = ...
     getData(NTRAIN, DATA_PATH, fold_id);
 
-%NTRAIN              = 3; % Number of sequences
-%[data_train, data_test, ll_train,  Y_test_vector] = ...
+% NTRAIN              = 3; % Number of sequences
+% [data_train, data_test, ll_train,  Y_test_vector] = ...
 %    getDataSmall(NTRAIN, DATA_PATH, fold_id);
 
 
@@ -61,13 +71,16 @@ conf.likiter                  = 5;                  % maxiter for optim the like
 conf.displayInterval          = 20;                 % intervals to display some progress 
 conf.checkVarianceReduction   = false;              % show diagnostic for variance reduction?
 conf.learnhyp                 = true;             
-conf.latentnoise              = 1e-4;                  % minimum noise level of the latent function
+conf.latentnoise              = 1e-4;              % minimum noise level of the latent function
+conf.fvalTol                  = 1e-3; 
+
 
 %% Model setting
 m.likfunc                     = ll_train;         % likelihood function
 m.pars.hyp.likfunc            = ll_train;         % I AM HERE      
 m.pred                        = @predStructured;  % prediction 
- m.pars.hyp.lik =             [];                 % likelihood parameters
+m.pars.hyp.lik                =  [];                 % likelihood parameters
+m.fval                        = [];
 
 m               = learnFullGaussianStructured(m, conf, data_train);
 marginals       = feval(m.pred, m, conf, data_train.X, data_test);
@@ -76,6 +89,22 @@ marginals       = feval(m.pred, m, conf, data_train.X, data_test);
 str = datestr(now);
 save(['final-fold-',num2str(fold_id),'-',str,'.mat']);
 
+end
+
+
+%% runFromFile
+function runFromFile(fname)
+load(fname);
+
+m               = learnFullGaussianStructured(m, conf, data_train);
+marginals       = feval(m.pred, m, conf, data_train.X, data_test);
+[avgError, nlp, maxMargPost] =  computeErrorStructured(marginals, Y_test_vector);
+
+str = datestr(now);
+save(['final-fold-',num2str(fold_id),'-',str,'.mat']);
+
+
+end
 
 
 

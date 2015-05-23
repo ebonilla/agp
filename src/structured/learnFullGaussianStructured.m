@@ -9,6 +9,11 @@ function m = learnFullGaussianStructured(m, conf, data_train)
 %
 % 30/09/14
 % N here is total number of feature vectors
+% 
+% m.exitFlat: (0) Max number of global iterations reached 
+%             (1) tolerance on parameter space reached
+%             (2) Tolerance on objective function reached 
+
 fHyper   =  @(hyp, m, sn2) elboCovhypStructured(hyp, m, sn2, data_train.X);
 Q   = m.Q;
 Nx  = m.Nx;
@@ -21,7 +26,6 @@ if ~isfield(conf,'latentnoise')
 else
   sn2 = conf.latentnoise;
 end
-fval        = [];
 K           = cell(Q+1,1); 
 LKchol      = cell(Q+1,1);
 nBinary     = m.nBinary;
@@ -37,10 +41,19 @@ for j = 1 : Q
     LKchol{j} = jit_chol(K{j});
 end
 
+if ( ~isfield(conf, 'fval') )
+    conf.fval = 1e-3;
+end
+
  
 %% Main loop
-iter = 0;
-while true
+if ( isfield(m,'fval') &&  numel(m.fval) > 0 )
+    fvalOld  = m.fval(end);
+else
+    fvalOld  = Inf;
+end
+iter     = 0;
+while ( iter <= conf.maxiter )
   %% E-step : optimize variational parameters
   theta = [m.pars.M; m.pars.L];
   
@@ -49,6 +62,8 @@ while true
   % [diff_deriv, gfunc, gnum] = derivativeCheck(@elboVarStructured, theta, 1, 1, m, conf, K, LKchol, s_rows, e_rows, true);
   
   [theta,fX,~] = minimize(theta, @elboVarStructured, conf.variter, m, conf, K, LKchol, s_rows, e_rows, true);
+  fvalNew     = fX(end);
+  m.fval        = [m.fval; fX(end)];
   
   delta_m = mean(abs(m.pars.M(:)-theta(1:numel(m.pars.M))));
   delta_l = mean(abs(m.pars.L(:)-theta(numel(m.pars.M)+1:end)));
@@ -69,11 +84,10 @@ while true
     lambda = m.pars.L(s_rows(j):e_rows(j));
     m.pars.S{j} = K{j} - K{j}*((-diag(1./(2*lambda))+K{j})\K{j});
   end
-  fval = [fval; fX(end)];
 
   %% Gradient-based optimization for covariance hyperparameters
   if conf.learnhyp
-   [diff_deriv, gfunc, gnum] = derivativeCheck(fHyper, cell2mat(m.pars.hyp.cov), 1, 1, m, sn2);
+   % [diff_deriv, gfunc, gnum] = derivativeCheck(fHyper, cell2mat(m.pars.hyp.cov), 1, 1, m, sn2);
   
     hyp0 = minimize(m.pars.hyp.cov, fHyper, conf.hypiter, m, sn2);
     m.pars.hyp.cov = hyp0;
@@ -82,10 +96,7 @@ while true
       LKchol{j} = jit_chol(K{j});
     end
     fhyp0 = elboVarStructured(theta, m, conf, K, LKchol, s_rows, e_rows, false);
-    fval = [fval; fhyp0];
-  end
-  if (delta_m + delta_l)/2 < 1e-3 || (iter > 1 && fval(end-1) - fval(end) < 1e-5)
-    break;
+    m.fval = [m.fval; fhyp0];
   end
   
   %% Update likelihood parameters
@@ -97,24 +108,49 @@ while true
     end
     lik0 = minimize(m.pars.hyp.lik(end),@elbolik,conf.likiter,m,fs);
     m.pars.hyp.lik(end) = lik0;
-    fval = [fval; elboVarStructured(theta,m,conf,K,LKchol,s_rows,e_rows,false)];
+    m.fval = [m.fval; elboVarStructured(theta,m,conf,K,LKchol,s_rows,e_rows,false)];
     disp('new lik hyp')
     disp(exp(2*m.pars.hyp.lik(end)))
   end
   if ( mod(iter,10)==0 )
-      str = datestr(now);
-      save(['model-',str,'.mat'], 'm');
+      save(['model','.mat'], 'm');
+  end
+
+%  if ( (delta_m + delta_l)/2 < 1e-3 ) 
+%      m.exitFlag = 1; 
+%    return;
+%  end
+
+  if (iter > 1 && ( (fvalOld - fvalNew) < conf.fvalTol) )
+    m.exitFlag = 2;      
+    return;
   end
   
-  if iter > conf.maxiter %|| delta < 1e-2
-    break
-  end
-  
+  fvalOld = fvalNew;
   iter = iter + 1;
   fprintf('Iteration %d done \n', iter);
 end
-m.fval = fval;
+
+m.exitFlag = 0; % exit due to  maxiter
+      
+
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
