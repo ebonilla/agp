@@ -41,8 +41,8 @@ for j = 1 : Q
     LKchol{j} = jit_chol(K{j});
 end
 
-if ( ~isfield(conf, 'fval') )
-    conf.fval = 1e-3;
+if ( ~isfield(conf, 'fvalTol') )
+    conf.fvalTol = 1e-3;
 end
 
  

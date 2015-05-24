@@ -17,6 +17,7 @@ switch (name)
         nLabels = 14;
         rand('state',fold);
         r = randperm(N_data * 2);
+%        r = 1 : 100;
         trainPoints = r(1:N_data);
         testPoints = r(N_data+1:end);
     case 'segmentation'
