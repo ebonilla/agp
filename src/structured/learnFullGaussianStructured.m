@@ -75,8 +75,8 @@ while ( iter <= conf.maxiter )
   
   %% update S for binary node functions
   j            = Q + 1;
-  s            = m.pars.L(s_rows(j):e_rows(j));
-  m.pars.S{j}  =  diag(s);
+  sBin          = exp(m.pars.L(s_rows(j):e_rows(j)));
+  m.pars.S{j}  =  diag(sBin);
   
   %% Update S for unary node functions
   for j = 1 : Q
@@ -112,8 +112,10 @@ while ( iter <= conf.maxiter )
     disp('new lik hyp')
     disp(exp(2*m.pars.hyp.lik(end)))
   end
-  if ( mod(iter,10)==0 )
-      save(['model','.mat'], 'm');
+  if ( mod(iter,5)==0 )
+      [marginals, avgError, nlp, maxMargPost]       = feval(m.pred, m);
+      save(['model','.mat'], 'm'); 
+      fprintf('**** Error rate = %.2f **** \n', avgError);
   end
 
 %  if ( (delta_m + delta_l)/2 < 1e-3 ) 

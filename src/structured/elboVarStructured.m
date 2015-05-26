@@ -11,16 +11,16 @@ dL        = zeros(size(m.pars.L));
 %% KL term [entropy + neg cross entropy part] for Q + 1
 j = Q + 1;
 mu           =  m.pars.M(s_rows(j):e_rows(j));
-s            =  m.pars.L(s_rows(j):e_rows(j));
-dimS         = length(s); % dimensionality of the Gaussian
-sinv         = 1./s;
-m.pars.S{j}  =  diag(s);
+sBin            =  exp(m.pars.L(s_rows(j):e_rows(j)));
+dimS         = length(sBin); % dimensionality of the Gaussian
+sinv         = 1./sBin;
+m.pars.S{j}  =  diag(sBin);
 k            =  diag(K{j});
 kinv         = 1./k;
-fvalEnt      =  0.5*sum(log(s));       % (1/2) log det (S) : S is a diagonal matrix
+fvalEnt      =  0.5*sum(log(sBin));       % (1/2) log det (S) : S is a diagonal matrix
 fvalNCE      =  -0.5*sum(log(k)) ...   % -0.5 log det K:  K{j} is diagonal here
                 -0.5*(mu.^2)'*kinv ... %  -0.5  m' K^{-1} m
-                -0.5*kinv'*s  ...      % -0.5 trace (K^-1 S)
+                -0.5*kinv'*sBin  ...      % -0.5 trace (K^-1 S)
                 +0.5*dimS;
 ptr         =  s_rows(j):e_rows(j);
 if (nargout > 1) % gradient
@@ -70,9 +70,15 @@ end
      % grad_{lambda} E_q log p(y|f) = 2(S.*S) grad_{diag(S)} E_q logp(y|f)
     for j = 1 : Q 
        dell_dl(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dell_dl(s_rows(j):e_rows(j));
-     end
+    end
      dM = dM + dell_dm;
      dL = dL + dell_dl;
+     
+    % For Q+1 we work on log scale
+    j = Q + 1;
+    ptr         =  s_rows(j):e_rows(j);
+    dL(ptr)     =  dL(ptr).*sBin;
+    
      grad = -[dM; dL];
    end
   fval = -(fvalEnt +  fvalNCE + ell);

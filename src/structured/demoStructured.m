@@ -17,7 +17,7 @@ DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/c
 
 switch strScale 
     case 'small'
-        NTRAIN              = 10; % Number of sequences
+        NTRAIN              = 2; % Number of sequences
         [data_train, data_test, ll_train,  Y_test_vector] = ...
             getDataSmall(NTRAIN, DATA_PATH, fold_id);
     otherwise
@@ -54,7 +54,7 @@ m.pars.M                      = zeros(nTotal,1);     % the mean parameters
 m.pars.L                      = -2*(1./1e10)*ones(nTotal,1);     % the linear parametrisation of the cov matrix
 
 % for Q+1 we have the actual variances
-m.pars.L(nTotal-nBinary+1:nTotal) = m.varPriorBinary*ones(nBinary,1);
+m.pars.L(nTotal-nBinary+1:nTotal) = log(m.varPriorBinary)*ones(nBinary,1);
  
 %% covariance hyperparameters
 m.pars.hyp.covfunc  = @covLINone;                   % cov function
@@ -81,13 +81,12 @@ conf.fvalTol                  = 1e-3;
 %% Model setting
 m.likfunc                     = ll_train;         % likelihood function
 m.pars.hyp.likfunc            = ll_train;         % I AM HERE      
-m.pred                        = @predStructured;  % prediction 
+m.pred                        = @(m_) predStructured(m_,conf,data_train.X, data_test);  % prediction 
 m.pars.hyp.lik                =  [];                 % likelihood parameters
 m.fval                        = [];
 
-m               = learnFullGaussianStructured(m, conf, data_train);
-marginals       = feval(m.pred, m, conf, data_train.X, data_test);
-[avgError, nlp, maxMargPost] =  computeErrorStructured(marginals, Y_test_vector);
+m            = learnFullGaussianStructured(m, conf, data_train);
+[marginals, avgError, nlp, maxMargPost]       = feval(m.pred, m);
 
 str = datestr(now);
 save(['final-fold-',num2str(fold_id),'-',str,'.mat']);

@@ -87,8 +87,11 @@ for n =1:dataset.N
     thisXfeatures = readSparse([ dirName filesep int2str(indexData(n)),'.x'],nFeatures);
     
     %%  EVB subsampling features
-    ns = min(size(thisXfeatures, 1), 3);
-    thisXfeatures = thisXfeatures(1:ns,:);
+    Nx = size(thisXfeatures, 1);
+    ns = min(Nx, 3);
+    idx = randperm(Nx);
+    idx = idx(1:ns);
+    thisXfeatures = thisXfeatures(idx,:);
     
     dataset.X = [dataset.X; thisXfeatures];
     
@@ -96,7 +99,7 @@ for n =1:dataset.N
     thisXfeatures(:,1)=[]; 
     
     %% EVB
-    thisXfeatures = thisXfeatures(1:ns,:);
+    thisXfeatures = thisXfeatures(idx,:);
 
     
     dataset.Xcont = [dataset.Xcont; thisXfeatures];
@@ -110,7 +113,7 @@ for n =1:dataset.N
     %% EVB 
     nLabels = 2;
     aaa = dataset.Y{n}; 
-    aaa  = aaa(1:ns);
+    aaa  = aaa(idx);
     aaa(aaa>(nLabels-1)) = nLabels;
     dataset.Y{n} = aaa;
     

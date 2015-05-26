@@ -1,4 +1,4 @@
-function P = predStructured(m, conf, xtrain, data_test)
+function[marginals, avgError, nlp, maxMargPost] = predStructured(m, conf, xtrain, data_test)
 
 [fmu,fvar] = predRegStructured(m, conf, xtrain, data_test.X);
 
@@ -8,12 +8,13 @@ Z = randn(data_test.max,nTestSamples);
 %fSample      = fmu + sqrt(fvar).*Z;
 fSample       = bsxfun(@plus, fmu, bsxfun(@times, sqrt(fvar), Z));
 nChunks       =  sum(cellfun('length', data_test.Y));
-P            = zeros(nChunks, data_test.nLabels, nTestSamples);
+marginals            = zeros(nChunks, data_test.nLabels, nTestSamples);
 for j  = 1 : nTestSamples
-     P(:,:,j) = predictiveMarginalsN(fSample(:,j), data_test);
+     marginals(:,:,j) = predictiveMarginalsN(fSample(:,j), data_test);
 end
 %
-% prob = squeeze(mean(P,3));
+Y_test_vector = cat(1,data_test.Y{:});
+[avgError, nlp, maxMargPost] =  computeErrorStructured(marginals, Y_test_vector);
 
 end
    
