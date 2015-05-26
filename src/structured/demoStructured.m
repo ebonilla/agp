@@ -1,29 +1,31 @@
-function demoStructured(fold_id, previousRunFile)
+function demoStructured(fold_id, previousRunFile, strScale)
 % here we choose the number of tasks as the number of Lables 
 % and treat the binary nodes separately
 %clear; clc; close all;
 rng(1110, 'twister');
-
-if (nargin == 2)
+if ( numel(previousRunFile) > 0 )
     runFromFile(previousRunFile);
 else
-    runSingle(fold_id);
+    runSingle(fold_id, strScale);
 end
 
 end
 
 %% runSingle
-function runSingle(fold_id)
+function runSingle(fold_id, strScale)
 DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/chunking';
 
-%% Get data for chunking problem
-NTRAIN              = 50; % Number of sequences
-[data_train, data_test, ll_train,  Y_test_vector] = ...
-    getData(NTRAIN, DATA_PATH, fold_id);
-
-% NTRAIN              = 3; % Number of sequences
-% [data_train, data_test, ll_train,  Y_test_vector] = ...
-%    getDataSmall(NTRAIN, DATA_PATH, fold_id);
+switch strScale 
+    case 'small'
+        NTRAIN              = 10; % Number of sequences
+        [data_train, data_test, ll_train,  Y_test_vector] = ...
+            getDataSmall(NTRAIN, DATA_PATH, fold_id);
+    otherwise
+        %% Get data for chunking problem
+        NTRAIN              = 50; % Number of sequences
+        [data_train, data_test, ll_train,  Y_test_vector] = ...
+        getData(NTRAIN, DATA_PATH, fold_id);
+end
 
 
 %% Parameters for memory allocation
@@ -43,6 +45,7 @@ m.nSeq      = data_train.N; % Number of sequences
 m.nTotal    = nTotal;
 m.idxUnary  = data_train.unary;
 m.idxBinary = data_train.binary; 
+m.varPriorBinary = 1;
 % 
 
 %% Parameter initialization
@@ -51,8 +54,8 @@ m.pars.M                      = zeros(nTotal,1);     % the mean parameters
 m.pars.L                      = -2*(1./1e10)*ones(nTotal,1);     % the linear parametrisation of the cov matrix
 
 % for Q+1 we have the actual variances
-m.pars.L(nTotal-nBinary+1:nTotal) = ones(nBinary,1);
-
+m.pars.L(nTotal-nBinary+1:nTotal) = m.varPriorBinary*ones(nBinary,1);
+ 
 %% covariance hyperparameters
 m.pars.hyp.covfunc  = @covLINone;                   % cov function
 m.pars.hyp.cov      = cell(Q,1);                       % cov hyperparameters
@@ -64,9 +67,9 @@ m.pars.hyp.cov      = mat2cell(matHyper,ones(Q,1),nhyper);
 conf.nsamples                 = 2000;               % number of samples for gradient estimator
 conf.ntestsamples             = 10000; 
 conf.covfunc                  = m.pars.hyp.covfunc; % covariance function
-conf.maxiter                  = 100;                % how many optimization iterations to run?
-conf.variter                  = 50;                 % maxiter for optim the variational hyperparameter (per iteration)
-conf.hypiter                  = 10;                  % maxiter for optim the cov hyperparameter (per iteration)
+conf.maxiter                  = 10;                % how many optimization iterations to run?
+conf.variter                  = 10;                 % maxiter for optim the variational hyperparameter (per iteration)
+conf.hypiter                  = 5;                  % maxiter for optim the cov hyperparameter (per iteration)
 conf.likiter                  = 5;                  % maxiter for optim the likelihood hyperparameter (per iteration)
 conf.displayInterval          = 20;                 % intervals to display some progress 
 conf.checkVarianceReduction   = false;              % show diagnostic for variance reduction?

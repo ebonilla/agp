@@ -8,6 +8,7 @@ for n = 1 : N
     edgeStruct = dataset.edgeStruct{n};
     edgePot = repmat(edgePotSingle, [1,1, dataset.T(n)]);
     nodePot = exp(f(dataset.unary{n}));
+
     % Compute logZ
     [foo,foo,logZ] = UGM_Infer_Chain(nodePot,edgePot,edgeStruct);
     

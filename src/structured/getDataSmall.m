@@ -87,7 +87,7 @@ for n =1:dataset.N
     thisXfeatures = readSparse([ dirName filesep int2str(indexData(n)),'.x'],nFeatures);
     
     %%  EVB subsampling features
-    ns = min(size(thisXfeatures, 1),2);
+    ns = min(size(thisXfeatures, 1), 3);
     thisXfeatures = thisXfeatures(1:ns,:);
     
     dataset.X = [dataset.X; thisXfeatures];
@@ -108,10 +108,10 @@ for n =1:dataset.N
     dataset.Y{n} = dataset.Y{n} + 1; % labels start from 0 in files, we want to start from 1
     
     %% EVB 
-    nLabels = 3;
+    nLabels = 2;
     aaa = dataset.Y{n}; 
     aaa  = aaa(1:ns);
-    aaa(aaa>3) = 3;
+    aaa(aaa>(nLabels-1)) = nLabels;
     dataset.Y{n} = aaa;
     
     dataset.edgeStruct{n}.useMex = useMex;
