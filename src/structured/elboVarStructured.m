@@ -52,39 +52,34 @@ for j = 1 : Q
     end
 end
 
-  %% sample from the marginal posteriors
-  nTotal = m.nTotal;
-  Fs = zeros(nTotal,  conf.nsamples);
+%% sample from the marginal posteriors
+nTotal = m.nTotal;
+Fs = zeros(nTotal,  conf.nsamples);
 %  z  = randn(nTotal, conf.nsamples);
-  for j =1 : Q + 1
-     Fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', diag(m.pars.S{j})', conf.nsamples)';
+for j =1 : Q + 1
+    Fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', diag(m.pars.S{j})', conf.nsamples)';
 %    ptr = s_rows(j):e_rows(j);    mu_fs  = m.pars.M(ptr,:);    dev_fs = sqrt(diag(m.pars.S{j}));   Fs(ptr,:) = bsxfun(@plus, mu_fs,  bsxfun(@times,z(ptr,:), dev_fs));
-  end
+end
 %   
-%   %% ELL and its gradients
-   if nargout == 1
-     ell = computeELLStructured(m, Fs, s_rows, e_rows, conf);
-   else
-     [ell, dell_dm, dell_dl] = computeELLStructured(m, Fs, s_rows, e_rows, conf);
-     
-     % grad_{lambda} E_q log p(y|f) = 2(S.*S) grad_{diag(S)} E_q logp(y|f)
-    for j = 1 : Q 
-       dell_dl(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dell_dl(s_rows(j):e_rows(j));
+%% ELL and its gradients
+if nargout == 1
+    ell = computeELLStructured(m, Fs, s_rows, e_rows, conf);
+else
+    [ell, dell_dm, dell_dl] = computeELLStructured(m, Fs, s_rows, e_rows, conf);
+    for j = 1 : Q      % grad_{lambda} E_q log p(y|f) = 2(S.*S) grad_{diag(S)} E_q logp(y|f)
+        dell_dl(s_rows(j):e_rows(j)) = 2*(m.pars.S{j}.^2)*dell_dl(s_rows(j):e_rows(j));
     end
-     dM = dM + dell_dm;
-     dL = dL + dell_dl;
+    dM = dM + dell_dm;
+    dL = dL + dell_dl;
      
-    % For Q+1 we work on log scale
+    % For Q+1 variance we work on log scale
     j = Q + 1;
     ptr         =  s_rows(j):e_rows(j);
     dL(ptr)     =  dL(ptr).*sBin;
-    
-     grad = -[dM; dL];
-   end
-  fval = -(fvalEnt +  fvalNCE + ell);
-
-
-
+    grad = -[dM; dL];
+end
+%
+fval = -(fvalEnt +  fvalNCE  + ell);
 
 
 end 
