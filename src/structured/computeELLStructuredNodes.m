@@ -1,6 +1,6 @@
-function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
+function [fval, dM, dL] = computeELLStructuredNodes(m, Fs, s_rows, e_rows, conf)
 %% compute ELL and gradients using the given samples
-
+% use marginals instead of the sequence likelihoods
   % m : model
   % Fs : the samples f ~ q(f | lambda_k)
   % conf.cvsamples : number of samples used for estimating the optimal control
@@ -21,12 +21,14 @@ function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
   % EVB: Replaced this with structured likelihood
   %logllh = fastLikelihood(m.likfunc,m.Y,Fs,m.pars.hyp,N,Q);
   % 
-  vec_ll   = zeros(nSeq,nSamples); % log likelihood for all data-points
+  logllh   = zeros(nTotal,nSamples); % log likelihood for all data-points
+  sll      = zeros(nSamples,1);
   for s = 1 : nSamples
-    vec_ll(:,s) = feval(m.likfunc, Fs(:,s)); % the labels are included in the anonymous function
+    [sll(s), logllh(:,s)] = feval(m.likfunc, Fs(:,s)); % the labels are included in the anonymous function
   end  
-  fsum_n = sum(vec_ll,1); % sum over n
-  fval = mean(fsum_n); %  sum of average likelihoods over empirical distribution (samples)
+  % fval = mean(sll); %  sum of average likelihoods over empirical distribution (samples)
+  % USE ABOVE DELETE BELOW
+  fval =mean(sum(logllh,1));
   
   %% gradients are required
   if nargout > 1
@@ -43,29 +45,11 @@ function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
 %         ptr = s_rows(j) : e_rows(j);
 %         dL(ptr,:) = 2*(m.pars.S{j}.^2)*dL(ptr,:);
 %     end
-    
-    logllh = zeros(nTotal, nSamples);
-    %% assign likelihood to respective unary nodes
-    for i = 1 : nSeq
-        idx = m.idxUnary{i}(:);
-        logllh(idx, :) = bsxfun(@plus, logllh(idx, :), vec_ll(i,:));
-    end
-    clear vec_ll;
-    
-    %% assing likelihood to binary nodes
-    idx            = m.idxBinary(:);
-    logllh(idx,:)  =  bsxfun(@plus, logllh(idx, :), fsum_n);  % weight of grads for binary nodes is the sum of the ELL
-
-    %% some useful constructs
-    %logllh = reshape(logllh,N,nSamples);
-    %logllh = repmat(logllh,2*Q,1); % size (2*N*Q)xS
-    %dML = [reshape(dM,N*Q,nSamples); reshape(dL,N*Q,nSamples)]; % size (2*N*Q)xS
-    %
-    %
+     
     logllh = repmat(logllh, 2, 1); % size (2*nTotal)xS
     dML = [dM; dL];
             
-    %% the noisy gradient using the control variates
+    %% the  gradients are weighted by their lokelihood
     grads = logllh.*dML; 
     
     %% adding control variates

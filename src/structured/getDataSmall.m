@@ -1,4 +1,4 @@
-function [data_train, data_test, ll_train,  Y_test_vector] ...
+function [data_train, data_test, Y_test_vector] ...
     = getDataSmall(N_data, dirName, fold)
 % return ll_fun, prediction_fun, score_fun
  
@@ -54,7 +54,7 @@ X_test = data_test.X;
 Xcont_train = data_train.Xcont;
 Xcont_test = data_test.Xcont;
 
-ll_train = @(f) ll_funStructured(f, data_train, useMex);
+%ll_train = @(f) ll_funStructured(f, data_train, useMex);
 prediction_fun = @(fStar) predictiveMarginalsN(fStar, data_test);
 Y_test_vector = cat(1, data_test.Y{:});
 end

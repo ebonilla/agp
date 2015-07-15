@@ -1,4 +1,4 @@
-function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
+function [fval, dM, dL] = computeELLStructuredCoupled(m, Fs, s_rows, e_rows, conf)
 %% compute ELL and gradients using the given samples
 
   % m : model
@@ -30,20 +30,9 @@ function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
   
   %% gradients are required
   if nargout > 1
-    %F0 = Fs - repmat(m.pars.M, 1, nSamples);
-    %Sinv = repmat(sinv, 1, nSamples);
-    %dM = F0.*Sinv;
-    %dL = 0.5*(dM.^2 - Sinv);    
-    F0 = bsxfun(@minus, Fs, m.pars.M);
-    dM  = bsxfun(@times, F0, sinv);
-    dL  = 0.5*bsxfun(@minus, dM.^2, sinv);
     
-    % gradients wrt lambfda parameter --> did't help bring this here
-%     for j = 1 : Q
-%         ptr = s_rows(j) : e_rows(j);
-%         dL(ptr,:) = 2*(m.pars.S{j}.^2)*dL(ptr,:);
-%     end
-    
+     [dM dL] = getGradients();
+      
     logllh = zeros(nTotal, nSamples);
     %% assign likelihood to respective unary nodes
     for i = 1 : nSeq
@@ -100,4 +89,12 @@ function [fval, dM, dL] = computeELLStructured(m, Fs, s_rows, e_rows, conf)
     dL = grad(nTotal+1:end);
   end
 end
+
+function getGradients(m, Fs)
+%F0 = Fs - repmat(m.pars.M, 1, nSamples);
+%Sinv = repmat(sinv, 1, nSamples);
+%dM = F0.*Sinv;
+%dL = 0.5*(dM.^2 - Sinv);    
+    
+
 

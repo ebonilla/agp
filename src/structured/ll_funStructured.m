@@ -9,8 +9,11 @@ for n = 1 : N
     edgePot = repmat(edgePotSingle, [1,1, dataset.T(n)]);
     nodePot = exp(f(dataset.unary{n}));
 
-    % Compute logZ
-    [foo,foo,logZ] = UGM_Infer_Chain(nodePot,edgePot,edgeStruct);
+    %% Compute logZ
+    [nodeBel, edgeBel,logZ] = UGM_Infer_Chain(nodePot,edgePot,edgeStruct);
+    %
+    %% DELETE ME  AND UNCOMMENT ABOVE
+    %logZ = 0;
     
     % Update LL
     if useMex
@@ -21,4 +24,5 @@ for n = 1 : N
 end
 
 end
+
 

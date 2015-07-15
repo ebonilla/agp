@@ -1,5 +1,7 @@
 %% the negative elbo and its gradient wrt variational parameters
-function [fval,grad] = elboVarStructured(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
+function [fval,grad] = elboVarStructuredCoupled(theta, m, conf, K, LKchol, s_rows, e_rows, updateS)
+% samples are drawn now from coupled Gaussians
+
 rng(10101,'twister');
 Q         = m.Q; 
 vec_N     = [m.Nx*ones(Q,1); size(K{Q+1},1)]; % vector of matrix sizes
@@ -35,7 +37,9 @@ for j = 1 : Q
         lambda = m.pars.L(s_rows(j):e_rows(j));
         m.pars.S{j} = K{j} - K{j}*((-diag(1./(2*lambda))+K{j})\K{j});
     end  
-    LSchol = jit_chol(m.pars.S{j})';
+    LSchol   = jit_chol(m.pars.S{j})';
+    m.pars.LowerCholS{j} = LSchol;
+    
     Kinvm = solve_chol(LKchol{j},m.pars.M(s_rows(j):e_rows(j))); % K^{-1}m
     KinvLj = solve_chol(LKchol{j},LSchol);  % K^{-1} Lj
     fvalEnt = fvalEnt +  sum(log(diag(LSchol))); % entropy
@@ -52,14 +56,8 @@ for j = 1 : Q
     end
 end
 
-%% sample from the marginal posteriors
-nTotal = m.nTotal;
-Fs = zeros(nTotal,  conf.nsamples);
-%  z  = randn(nTotal, conf.nsamples);
-for j =1 : Q + 1
-    Fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', diag(m.pars.S{j})', conf.nsamples)';
-%    ptr = s_rows(j):e_rows(j);    mu_fs  = m.pars.M(ptr,:);    dev_fs = sqrt(diag(m.pars.S{j}));   Fs(ptr,:) = bsxfun(@plus, mu_fs,  bsxfun(@times,z(ptr,:), dev_fs));
-end
+Fs = sampleFromPosterior(m, conf);
+
 %   
 %% ELL and its gradients
 if nargout == 1
@@ -84,11 +82,29 @@ fval = -(fvalEnt +  fvalNCE  + ell);
 
 end 
 
+%% Samples from current posterior
+function Fs = sampleFromPosterior(m, conf)
+%% sample from the marginal posteriors
+% TODO: we actually do not need to sample from the 
+% full covariances as there are not correlations acros functions
+nTotal = m.nTotal;
+Z      = randn(nTotal, conf.nsamples);
+Fs     = zeros(nTotal,  conf.nsamples);
+for j =1 : Q + 1
+     ptr    = s_rows(j):e_rows(j);
+     mu_fs  = m.pars.M(ptr,:);
+     Fs(ptr,:) =   bsxfun(@plus, mu_fs, m.pars.LowerCholS{j}*Z);
+end
+% nTotal = m.nTotal;
+% Fs = zeros(nTotal,  conf.nsamples);
+% %  z  = randn(nTotal, conf.nsamples);
+% for j =1 : Q + 1
+%     Fs(s_rows(j):e_rows(j),:) = mvnrnd(m.pars.M(s_rows(j):e_rows(j),:)', diag(m.pars.S{j})', conf.nsamples)';
+% %    ptr = s_rows(j):e_rows(j);    mu_fs  = m.pars.M(ptr,:);    dev_fs = sqrt(diag(m.pars.S{j}));   Fs(ptr,:) = bsxfun(@plus, mu_fs,  bsxfun(@times,z(ptr,:), dev_fs));
+% end
 
 
-
-
-
+end
 
 
 

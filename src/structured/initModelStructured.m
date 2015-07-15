@@ -17,6 +17,9 @@ m.nSeq      = data_train.N; % Number of sequences
 m.nTotal    = nTotal;
 m.idxUnary  = data_train.unary;
 m.idxBinary = data_train.binary; 
+m.dataStarts = data_train.dataStarts;
+m.dataEnds   = data_train.dataEnds;
+
 m.varPriorBinary = 1e-4; % prior variance of binary functions
 % 
 

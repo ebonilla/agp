@@ -59,7 +59,7 @@ while ( iter <= conf.maxiter )
   
   % Check derivatives
   % theta = rand(size(theta));
-  [diff_deriv, gfunc, gnum] = derivativeCheck(@elboVarStructured, theta, 1,2, m, conf, K, LKchol, s_rows, e_rows, true);
+  %[diff_deriv, gfunc, gnum] = derivativeCheck(@elboVarStructured, theta, 1,2, m, conf, K, LKchol, s_rows, e_rows, true);
   
   [theta,fX,~] = minimize(theta, @elboVarStructured, conf.variter, m, conf, K, LKchol, s_rows, e_rows, true);
   fvalNew     = fX(end);

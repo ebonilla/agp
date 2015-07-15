@@ -18,16 +18,18 @@ DATA_PATH           = '~/Documents/research/projects/structGP/gpstruct_vi/data/c
 switch strScale 
     case 'small'
         NTRAIN              = 2; % Number of sequences
-        [data_train, data_test, ll_train,  Y_test_vector] = ...
+        [data_train, data_test,  Y_test_vector] = ...
             getDataSmall(NTRAIN, DATA_PATH, fold_id);
     otherwise
         %% Get data for chunking problem
         NTRAIN              = 50; % Number of sequences
-        [data_train, data_test, ll_train,  Y_test_vector] = ...
+        [data_train, data_test,  Y_test_vector] = ...
         getData(NTRAIN, DATA_PATH, fold_id);
 end
 
-
+useMex = 1;
+ll_train = @(f) ll_funStructured(f, data_train, useMex);
+ellfun   = @computeELLStructured;
 m = initModelStructured(data_train);
 
 %% Optimization settings
@@ -51,6 +53,7 @@ m.pars.hyp.likfunc            = ll_train;         % I AM HERE
 m.pred                        = @(m_) predStructured(m_,conf,data_train.X, data_test);  % prediction 
 m.pars.hyp.lik                =  [];                 % likelihood parameters
 m.fval                        = [];
+m.ellfun                      = ellfun;
 
 m            = learnFullGaussianStructured(m, conf, data_train);
 [marginals, avgError, nlp, maxMargPost]       = feval(m.pred, m);
